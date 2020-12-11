@@ -17,6 +17,9 @@ class ezsqlModel extends ezQuery implements ezsqlModelInterface
 	protected $sslCert = null;
 	protected $sslCa = null;
 	protected $sslPath = null;
+	protected $save_log_error	  = true;
+	protected $error_log_file	  = "./log_ezsql.log";
+	protected $general_error_log_file	  = "/log_general_ezsql.log";
 
 	/**
 	 * If set to true (i.e. $db->debug_all = true;) Then it will print out ALL queries and ALL results of your script.
@@ -212,6 +215,22 @@ class ezsqlModel extends ezQuery implements ezsqlModelInterface
 
 	public function register_error(string $err_str, bool $displayError = true)
 	{
+		$pathFile = $this->error_log_file;
+		if($this->save_log_error){
+			if($file = fopen($pathFile,"a+")) {
+				fwrite($file, "_error_str_: " . $err_str . " || _query_: " . $this->last_query ." || _timestamp_: ".date("Y-m-d H:i:s")."\n");
+				fclose($file);
+			}
+		}
+		
+		$generalPathFile = $_SERVER['DOCUMENT_ROOT'].$this->general_error_log_file;
+		if($this->save_log_error){
+			if($file = fopen($generalPathFile,"a+")) {
+				fwrite($file, "_error_str_: " . $err_str . " || _query_: " . $this->last_query ." || _timestamp_: ".date("Y-m-d H:i:s")."\n");
+				fclose($file);
+			}
+		}
+		
 		// Keep track of last error
 		$this->last_error = $err_str;
 
