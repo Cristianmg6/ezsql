@@ -531,9 +531,10 @@ class ez_mysqli extends ezsqlModel implements DatabaseInterface
 
     public function commit()
     {
-        $this->dbh->commit();
+        $result = $this->dbh->commit();
         $this->dbh->autocommit(true);
         $this->isTransactional = false;
+        return $result;
     }
 
     public function rollback()
