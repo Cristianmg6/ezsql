@@ -748,8 +748,10 @@ class ezQuery implements ezQueryInterface
                     if ($this->isPrepareOn()) {
                         $value .= _TAG . ", ";
                         $this->addPrepare($val);
-                    } else
-                        $value .= "'" . $this->escape($val) . "', ";
+                    } elseif (is_string($val)){
+						$value .= "'".$this->escape($val)."', ";
+					} else
+						$value .= "'$val', ";
                 }
             }
 
