@@ -49,12 +49,12 @@ class ezResultset implements \Iterator
 
     /**
      * Initializes the record object
-     * @param array $query_result The result of an ezSQL query
+     * @param array|object $query_result The result of an ezSQL query
      * @throws Exception When $query_result is not an array
      */
     public function __construct($query_result)
     {
-        if (!is_array($query_result)) {
+        if (!\is_array($query_result)) {
             throw new \Exception("$query_result is not valid.");
         }
         $this->_resultset = $query_result;
@@ -181,7 +181,7 @@ class ezResultset implements \Iterator
     /**
      * Returns n object with properties that correspond to the fetched row and moves
      * the internal data pointer ahead. Behaves like mysql_fetch_object.
-     * @return array
+     * @return object
      */
     public function fetch_object()
     {
@@ -196,7 +196,7 @@ class ezResultset implements \Iterator
 
     /**
      * Returns the current record as an json object and moves the internal data pointer ahead.
-     * @return array
+     * @return string
      */
     public function fetch_json()
     {

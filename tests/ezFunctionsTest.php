@@ -4,11 +4,80 @@ namespace ezsql\Tests;
 
 use ezsql\Tests\EZTestCase;
 
+use function ezsql\functions\{
+    setInstance,
+    getInstance,
+    clearInstance,
+    get_vendor,
+    column,
+    primary,
+    foreign,
+    unique,
+    index,
+    addColumn,
+    dropColumn,
+    changingColumn,
+    eq,
+    neq,
+    ne,
+    lt,
+    lte,
+    gt,
+    gte,
+    isNull,
+    isNotNull,
+    like,
+    in,
+    notLike,
+    notIn,
+    between,
+    notBetween,
+    select_into,
+    insert_select,
+    create_select,
+    where,
+    groupBy,
+    having,
+    orderBy,
+    updating,
+    creating,
+    deleting,
+    dropping,
+    replacing,
+    selecting,
+    inserting,
+    altering,
+    get_results,
+    table_setup,
+    set_table,
+    set_prefix,
+    clean_string,
+    is_traversal,
+    sanitize_path
+};
+
 class ezFunctionsTest extends EZTestCase
 {
     protected function setUp(): void
     {
-        \clearInstance();
+        clearInstance();
+    }
+
+    public function testClean_string()
+    {
+        $this->assertEquals("' help", clean_string("<?php echo 'foo' >' help</php?>"));
+    }
+
+    public function testSanitize_path()
+    {
+        $this->assertEquals("config.php", sanitize_path("../../../../config.php-"));
+    }
+
+    public function testis_traversal()
+    {
+        $this->assertEquals(true, is_traversal('/home', "../../../../config.php"));
+        $this->assertEquals(true, is_traversal(__DIR__, dirname(__DIR__), 8));
+        $this->assertEquals(false, is_traversal(__DIR__, 'Foo.php'));
     }
 
     public function testGetInstance()
@@ -18,7 +87,7 @@ class ezFunctionsTest extends EZTestCase
 
     public function testGetVendor()
     {
-        $this->assertNull(getVendor());
+        $this->assertNull(get_vendor());
     }
 
     public function testColumn()
@@ -54,6 +123,10 @@ class ezFunctionsTest extends EZTestCase
     public function testDropColumn()
     {
         $this->assertFalse(dropColumn('column', 'column'));
+    }
+    public function testChangingColumn()
+    {
+        $this->assertFalse(changingColumn('column', 'column'));
     }
 
     public function testEq()
@@ -148,13 +221,7 @@ class ezFunctionsTest extends EZTestCase
 
     public function testSetInstance()
     {
-        $this->assertFalse(\setInstance());
-        $this->assertFalse(\setInstance($this));
-    }
-
-    public function testSelect()
-    {
-        $this->assertFalse(select(''));
+        $this->assertFalse(setInstance());
     }
 
     public function testSelect_into()
@@ -194,14 +261,14 @@ class ezFunctionsTest extends EZTestCase
         $this->assertNotNull(orderBy('field', 'data'));
     }
 
-    public function testInsert()
+    public function testUpdating()
     {
-        $this->assertFalse(insert('field', ['data' => 'data2']));
+        $this->assertFalse(updating(['data', 'data2']));
     }
 
-    public function testUpdate()
+    public function testCreating()
     {
-        $this->assertFalse(update('field', 'data', 'data2'));
+        $this->assertFalse(creating(['data', 'data2']));
     }
 
     public function testDeleting()
@@ -209,8 +276,48 @@ class ezFunctionsTest extends EZTestCase
         $this->assertFalse(deleting('field', 'data', 'data2'));
     }
 
-    public function testReplace()
+    public function testInserting()
     {
-        $this->assertFalse(replace('field', ['data' => 'data2']));
+        $this->assertFalse(inserting([]));
+    }
+
+    public function testTable_Setup()
+    {
+        $this->assertFalse(table_setup());
+    }
+
+    public function testSelecting()
+    {
+        $this->assertFalse(selecting());
+    }
+
+    public function testReplacing()
+    {
+        $this->assertFalse(replacing(['data' => 'data2']));
+    }
+
+    public function testAltering()
+    {
+        $this->assertFalse(altering([]));
+    }
+
+    public function testGet_results()
+    {
+        $this->assertFalse(get_results());
+    }
+
+    public function testDropping()
+    {
+        $this->assertFalse(dropping());
+    }
+
+    public function testSet_Table()
+    {
+        $this->assertFalse(set_table());
+    }
+
+    public function testSet_Prefix()
+    {
+        $this->assertFalse(set_prefix());
     }
 }

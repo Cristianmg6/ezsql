@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace ezsql\Database;
 
 use Exception;
-use ezsql\ezQuery;
 use ezsql\ezsqlModel;
 use ezsql\ConfigInterface;
 use ezsql\DatabaseInterface;
+use function ezsql\functions\setInstance;
 
 class ez_pdo extends ezsqlModel implements DatabaseInterface
 {
@@ -19,7 +19,7 @@ class ez_pdo extends ezsqlModel implements DatabaseInterface
 
     /**
      * Database connection handle
-     * @var resource
+     * @var \PDO
      */
     private $dbh;
 
@@ -49,7 +49,7 @@ class ez_pdo extends ezsqlModel implements DatabaseInterface
 
         if (empty($GLOBALS['ez' . \Pdo]))
             $GLOBALS['ez' . \Pdo] = $this;
-        \setInstance($this);
+        setInstance($this);
     } // __construct
 
     public function settings()
@@ -221,7 +221,7 @@ class ez_pdo extends ezsqlModel implements DatabaseInterface
 
             $error_str = \substr($error_str, 0, -2);
 
-            $this->register_error($error_str . ' ' . $this->last_query);
+            $this->register_error($error_str . ' ' . $this->lastQuery);
 
             return true;
         }
@@ -239,17 +239,21 @@ class ez_pdo extends ezsqlModel implements DatabaseInterface
     {
         $stmt = $this->dbh->prepare($query);
         $result = false;
-        if ($stmt && $stmt->execute($param)) {
+        if ($stmt && $stmt->execute(\array_values($param))) {
             $result = $stmt->rowCount();
             // Store Query Results
             $num_rows = 0;
-            while ($row = @$stmt->fetch(\PDO::FETCH_ASSOC)) {
-                // Store results as an objects within main array
-                $this->last_result[$num_rows] = (object) $row;
-                $num_rows++;
+            try {
+                while ($row = @$stmt->fetch(\PDO::FETCH_ASSOC)) {
+                    // Store results as an objects within main array
+                    $this->lastResult[$num_rows] = (object) $row;
+                    $num_rows++;
+                }
+            } catch (\Throwable $ex) {
+                //
             }
 
-            $this->num_rows = $num_rows;
+            $this->numRows = $num_rows;
         }
 
         $return = ($isSelect) ? $stmt : $result;
@@ -285,32 +289,36 @@ class ez_pdo extends ezsqlModel implements DatabaseInterface
                 $col_count = $result->columnCount();
                 for ($i = 0; $i < $col_count; $i++) {
                     // Start DEBUG by psc!
-                    $this->col_info[$i] = new \stdClass();
+                    $this->colInfo[$i] = new \stdClass();
                     // End DEBUG by psc
                     if ($meta = $result->getColumnMeta($i)) {
-                        $this->col_info[$i]->name =  $meta['name'];
-                        $this->col_info[$i]->type =  $meta['native_type'];
-                        $this->col_info[$i]->max_length =  '';
+                        $this->colInfo[$i]->name =  $meta['name'];
+                        $this->colInfo[$i]->type =  $meta['native_type'];
+                        $this->colInfo[$i]->max_length =  '';
                     } else {
-                        $this->col_info[$i]->name =  'undefined';
-                        $this->col_info[$i]->type =  'undefined';
-                        $this->col_info[$i]->max_length = '';
+                        $this->colInfo[$i]->name =  'undefined';
+                        $this->colInfo[$i]->type =  'undefined';
+                        $this->colInfo[$i]->max_length = '';
                     }
                 }
 
                 // Store Query Results
                 $num_rows = 0;
-                while ($row = @$result->fetch(\PDO::FETCH_ASSOC)) {
-                    // Store results as an objects within main array
-                    $this->last_result[$num_rows] = (object) $row;
-                    $num_rows++;
+                try {
+                    while ($row = @$result->fetch(\PDO::FETCH_ASSOC)) {
+                        // Store results as an objects within main array
+                        $this->lastResult[$num_rows] = (object) $row;
+                        $num_rows++;
+                    }
+                } catch (\Throwable $ex) {
+                    //
                 }
 
                 // Log number of rows the query returned
-                $this->num_rows = empty($num_rows) ? $this->num_rows : $num_rows;
+                $this->numRows = empty($num_rows) ? $this->numRows : $num_rows;
 
                 // Return number of rows selected
-                $this->return_val = $this->num_rows;
+                $this->return_val = $this->numRows;
             }
         } else {
             $this->is_insert = true;
@@ -318,9 +326,13 @@ class ez_pdo extends ezsqlModel implements DatabaseInterface
             if (!empty($result))
                 $this->_affectedRows = $result;
 
-            // Take note of the insert_id
-            if (\preg_match("/^(insert|replace)\s+/i", $query)) {
-                $this->insert_id = @$this->dbh->lastInsertId();
+            try {
+                // Take note of the insert_id
+                if (\preg_match("/^(insert|replace)\s+/i", $query)) {
+                    $this->insertId = @$this->dbh->lastInsertId();
+                }
+            } catch (\Throwable $ex) {
+                //
             }
 
             // Return number of rows affected
@@ -346,8 +358,13 @@ class ez_pdo extends ezsqlModel implements DatabaseInterface
             if (!empty($param) && \is_array($param) && $this->isPrepareOn()) {
                 $this->shortcutUsed = true;
                 $this->_affectedRows = $this->query_prepared($query, $param, false);
-            } else
-                $this->_affectedRows = $this->dbh->exec($query);
+            } else {
+                try {
+                    $this->_affectedRows = $this->dbh->exec($query);
+                } catch (\Throwable $ex) {
+                    //
+                }
+            }
 
             if ($this->processResult($query) === false)
                 return false;
@@ -360,7 +377,11 @@ class ez_pdo extends ezsqlModel implements DatabaseInterface
                 $this->shortcutUsed = true;
                 $sth = $this->query_prepared($query, $param, true);
             } else
-                $sth = $this->dbh->query($query);
+                try {
+                    $sth = $this->dbh->query($query);
+                } catch (\Throwable $ex) {
+                    //
+                }
 
             if ($this->processResult($query, $sth, true) === false)
                 return false;
@@ -396,21 +417,21 @@ class ez_pdo extends ezsqlModel implements DatabaseInterface
         $this->log_query("\$db->query(\"$query\")");
 
         // Keep track of the last query for debug..
-        $this->last_query = $query;
+        $this->lastQuery = $query;
 
-        $this->num_queries++;
+        $this->numQueries++;
 
         // Start timer
-        $this->timer_start($this->num_queries);
+        $this->timer_start($this->numQueries);
 
         // Use core file cache function
         if ($cache = $this->get_cache($query)) {
             // Keep tack of how long all queries have taken
-            $this->timer_update_global($this->num_queries);
+            $this->timer_update_global($this->numQueries);
 
             // Trace all queries
-            if ($this->use_trace_log) {
-                $this->trace_log[] = $this->debug(false);
+            if ($this->useTraceLog) {
+                $this->traceLog[] = $this->debug(false);
             }
 
             return $cache;
@@ -429,7 +450,7 @@ class ez_pdo extends ezsqlModel implements DatabaseInterface
 
         if ($this->processQuery($query, $param) === false) {
             if ($this->isTransactional)
-                throw new \PDOException($this->getLast_Error());
+                throw new \PDOException($this->getLastError());
 
             return false;
         }
@@ -438,14 +459,14 @@ class ez_pdo extends ezsqlModel implements DatabaseInterface
         $this->store_cache($query, $this->is_insert);
 
         // If debug ALL queries
-        $this->trace || $this->debug_all ? $this->debug() : null;
+        $this->trace || $this->debugAll ? $this->debug() : null;
 
         // Keep tack of how long all queries have taken
-        $this->timer_update_global($this->num_queries);
+        $this->timer_update_global($this->numQueries);
 
         // Trace all queries
-        if ($this->use_trace_log) {
-            $this->trace_log[] = $this->debug(false);
+        if ($this->useTraceLog) {
+            $this->traceLog[] = $this->debug(false);
         }
 
         return $this->return_val;

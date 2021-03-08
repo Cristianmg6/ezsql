@@ -5,6 +5,13 @@ namespace ezsql\Tests;
 use ezsql\ezQuery;
 use ezsql\Tests\EZTestCase;
 
+use function ezsql\functions\{
+    eq,
+    neq,
+    like,
+    in
+};
+
 class ezQueryTest extends EZTestCase
 {
     protected $object;
@@ -17,11 +24,6 @@ class ezQueryTest extends EZTestCase
     protected function tearDown(): void
     {
         $this->object = null;
-    }
-
-    public function testClean()
-    {
-        $this->assertEquals("' help", $this->object->clean("<?php echo 'foo' >' help</php?>"));
     }
 
     public function testHaving()
@@ -101,10 +103,10 @@ class ezQueryTest extends EZTestCase
         $this->assertFalse($this->object->delete('test_unit_delete', array('good', 'bad')));
     }
 
-    public function testSelecting()
+    public function testSelect()
     {
-        $this->assertFalse($this->object->selecting('', ''));
-        $this->assertNotNull($this->object->selecting('table', 'columns', 'WHERE', 'GROUP BY', 'HAVING', 'ORDER BY', 'LIMIT'));
+        $this->assertFalse($this->object->select('', ''));
+        $this->assertNotNull($this->object->select('table', 'columns', 'WHERE', 'GROUP BY', 'HAVING', 'ORDER BY', 'LIMIT'));
     }
 
     public function testCreate_select()

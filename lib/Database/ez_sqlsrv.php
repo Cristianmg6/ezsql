@@ -8,6 +8,7 @@ use Exception;
 use ezsql\ezsqlModel;
 use ezsql\ConfigInterface;
 use ezsql\DatabaseInterface;
+use function ezsql\functions\setInstance;
 
 class ez_sqlsrv extends ezsqlModel implements DatabaseInterface
 {
@@ -54,7 +55,7 @@ class ez_sqlsrv extends ezsqlModel implements DatabaseInterface
 
         if (empty($GLOBALS['ez' . \SQLSRV]))
             $GLOBALS['ez' . \SQLSRV] = $this;
-        \setInstance($this);
+        setInstance($this);
     }
 
     public function settings()
@@ -114,7 +115,7 @@ class ez_sqlsrv extends ezsqlModel implements DatabaseInterface
             $this->register_error(\FAILED_CONNECTION . ' in ' . __FILE__ . ' on line ' . __LINE__);
         } else {
             $this->_connected = true;
-            $this->conn_queries = 0;
+            $this->connQueries = 0;
         }
 
         return $this->_connected;
@@ -179,61 +180,65 @@ class ez_sqlsrv extends ezsqlModel implements DatabaseInterface
 
         // Query was an insert, delete, update, replace
         $this->is_insert = false;
-        if (\preg_match("/^(insert|delete|update|replace)\s+/i", $query)) {
-            $this->is_insert = true;
-            $this->_affectedRows = @\sqlsrv_rows_affected($this->result);
+        try {
+            if (\preg_match("/^(insert|delete|update|replace)\s+/i", $query)) {
+                $this->is_insert = true;
+                $this->_affectedRows = @\sqlsrv_rows_affected($this->result);
 
-            // Take note of the insert_id
-            if (\preg_match("/^(insert|replace)\s+/i", $query)) {
-                $identityResultset = @\sqlsrv_query($this->dbh, "select SCOPE_IDENTITY()");
+                // Take note of the insert_id
+                if (\preg_match("/^(insert|replace)\s+/i", $query)) {
+                    $identityResultset = @\sqlsrv_query($this->dbh, "select SCOPE_IDENTITY()");
 
-                if ($identityResultset != false) {
-                    $identityRow = @\sqlsrv_fetch($identityResultset);
-                    $this->insert_id = $identityRow[0];
+                    if ($identityResultset != false) {
+                        $identityRow = @\sqlsrv_fetch($identityResultset);
+                        $this->insertId = $identityRow[0];
+                    }
                 }
-            }
-            // Return number of rows affected
-            $this->return_val = $this->_affectedRows;
-        } else { // Query was a select
-            // Take note of column info
-            $i = 0;
-            foreach (@\sqlsrv_field_metadata($this->result) as $field) {
-                $col = [];
-                foreach ($field as $name => $value) {
-                    $name = \strtolower($name);
-                    if ($name == "size") {
-                        $name = "max_length";
-                    } elseif ($name == "type") {
-                        $name = "typeid";
+                // Return number of rows affected
+                $this->return_val = $this->_affectedRows;
+            } else { // Query was a select
+                // Take note of column info
+                $i = 0;
+                foreach (@\sqlsrv_field_metadata($this->result) as $field) {
+                    $col = [];
+                    foreach ($field as $name => $value) {
+                        $name = \strtolower($name);
+                        if ($name == "size") {
+                            $name = "max_length";
+                        } elseif ($name == "type") {
+                            $name = "typeid";
+                        }
+
+                        //DEFINED FOR E_STRICT
+                        $col = new \stdClass();
+                        $col->{$name} = $value;
                     }
 
-                    //DEFINED FOR E_STRICT
-                    $col = new \stdClass();
-                    $col->{$name} = $value;
+                    $col->type = $this->get_datatype($col);
+                    $this->colInfo[$i++] = $col;
+                    unset($col);
                 }
 
-                $col->type = $this->get_datatype($col);
-                $this->col_info[$i++] = $col;
-                unset($col);
+                // Store Query Results
+                $num_rows = 0;
+
+                while ($row = @\sqlsrv_fetch_object($this->result)) {
+
+                    // Store results as an objects within main array
+                    $this->lastResult[$num_rows] = $row;
+                    $num_rows++;
+                }
+
+                @\sqlsrv_free_stmt($this->result);
+
+                // Log number of rows the query returned
+                $this->numRows = $num_rows;
+
+                // Return number of rows selected
+                $this->return_val = $this->numRows;
             }
-
-            // Store Query Results
-            $num_rows = 0;
-
-            while ($row = @\sqlsrv_fetch_object($this->result)) {
-
-                // Store results as an objects within main array
-                $this->last_result[$num_rows] = $row;
-                $num_rows++;
-            }
-
-            @\sqlsrv_free_stmt($this->result);
-
-            // Log number of rows the query returned
-            $this->num_rows = $num_rows;
-
-            // Return number of rows selected
-            $this->return_val = $this->num_rows;
+        } catch (\Throwable $ex) {
+            return false;
         }
 
         return $this->return_val;
@@ -275,7 +280,7 @@ class ez_sqlsrv extends ezsqlModel implements DatabaseInterface
         $this->log_query("\$db->query(\"$query\")");
 
         // Keep track of the last query for debug..
-        $this->last_query = $query;
+        $this->lastQuery = $query;
 
         // Count how many queries there have been
         $this->count(true, true);
@@ -300,12 +305,16 @@ class ez_sqlsrv extends ezsqlModel implements DatabaseInterface
             $this->shortcutUsed = true;
             $this->result = $this->query_prepared($query, $param);
         } else {
-            $this->result = @\sqlsrv_query($this->dbh, $query);
+            try {
+                $this->result = @\sqlsrv_query($this->dbh, $query);
+            } catch (\Throwable $ex) {
+                //
+            }
         }
 
         if ($this->processQueryResult($query) === false) {
             if ($this->isTransactional)
-                throw new \Exception($this->getLast_Error());
+                throw new \Exception($this->getLastError());
 
             return false;
         }
@@ -314,7 +323,7 @@ class ez_sqlsrv extends ezsqlModel implements DatabaseInterface
         $this->store_cache($query, $this->is_insert);
 
         // If debug ALL queries
-        $this->trace || $this->debug_all ? $this->debug() : null;
+        $this->trace || $this->debugAll ? $this->debug() : null;
 
         return $this->return_val;
     }
@@ -415,7 +424,7 @@ class ez_sqlsrv extends ezsqlModel implements DatabaseInterface
      */
     public function disconnect()
     {
-        $this->conn_queries = 0;
+        $this->connQueries = 0;
         @\sqlsrv_close($this->dbh);
         $this->_connected = false;
     }
