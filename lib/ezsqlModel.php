@@ -434,7 +434,7 @@ class ezsqlModel extends ezQuery implements ezsqlModelInterface
 		$pathFile = $this->error_log_file;
 		if($this->save_log_error){
 			if($file = fopen($pathFile,"a+")) {
-				fwrite($file, "_error_str_: " . $err_str . " || _query_: " . $this->last_query ." || _timestamp_: ".date("Y-m-d H:i:s")."\n");
+				fwrite($file, "_error_str_: " . $err_str . " || _query_: " . $this->lastQuery ." || _timestamp_: ".date("Y-m-d H:i:s")."\n");
 				fclose($file);
 			}
 		}
@@ -442,7 +442,7 @@ class ezsqlModel extends ezQuery implements ezsqlModelInterface
 		$generalPathFile = $_SERVER['DOCUMENT_ROOT'].$this->general_error_log_file;
 		if($this->save_log_error){
 			if($file = fopen($generalPathFile,"a+")) {
-				fwrite($file, "_error_str_: " . $err_str . " || _query_: " . $this->last_query ." || _timestamp_: ".date("Y-m-d H:i:s")."\n");
+				fwrite($file, "_error_str_: " . $err_str . " || _query_: " . $this->lastQuery ." || _timestamp_: ".date("Y-m-d H:i:s")."\n");
 				fclose($file);
 			}
 		}
